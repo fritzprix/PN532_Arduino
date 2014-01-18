@@ -4,7 +4,7 @@ PN532_Arduino
 
 
 
-PN532 Driver for Arduino platform.
+PN532 Driver for Arduino platform.<br/>
 
 NFC    : C++ Implementaion of PN532 Command Set & Interface
 NdefRecord & NdefMessage : C++ Util class for dealing NDEF Standard
