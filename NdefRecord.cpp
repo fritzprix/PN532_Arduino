@@ -57,6 +57,9 @@ NdefRecord* NdefRecord::createEmptyRecord() {
 }
 
 NdefRecord::NdefRecord(NdefInitType* init, uint8_t flag) {
+    payload = NULL;
+    type = NULL;
+    id = NULL;
 	if (init->plen > 0) {
 		payload = new uint8_t[init->plen];
 		memcpy(payload, init->pload, init->plen);

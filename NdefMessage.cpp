@@ -120,8 +120,8 @@ NdefMessage::NdefMessage(const NdefMessage& org) {
 
 NdefMessage::~NdefMessage() {
 	if (rcds != NULL) {
-		int i;
-		for(i = 0;i <size;i++){
+		int i = 0;
+		for(;i <size;i++){
 			if(rcds[i] != NULL){
 				delete rcds[i];
 			}

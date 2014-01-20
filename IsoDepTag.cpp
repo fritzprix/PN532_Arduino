@@ -80,41 +80,39 @@ IsoDepTag::IsoDepTag(NFC* hw) {
 	ulhw = hw;
 	uint8_t buf[255] = { 0, };
 	//Initialize PN532 as a target which supports Iso-Dep Tag type (NFC Tag Type-4)
+	NdefRecord* rcds[] ={
+	    NdefRecord::createTextNdefRecord("This is Tag Type 4 Driver for PN532","en",NdefRecord::UTF8),
+	    NdefRecord::createEmptyRecord()
+	};
+	NdefMessage msg(rcds, 2);
+	defaultImpl = new DefaultDepAppImpl(msg);
+
 	/**
 	 * To configure pn532 as a picc which support NFC Type Tag, PICC Emulation Mode "Must be" enabled
 	 * otherwise it'll send error code when any command which is relevant to Picc Operation is received.
 	 * @param : Auto ATR_RES | ISO_14443-4 Picc Emulation
 	 *
 	 */
-	rcd = new NdefRecord*[5];
-	rcd[0] = NdefRecord::createTextNdefRecord("This is driver of PN532 NFC IC", "en",NdefRecord::UTF8);
-        rcd[1] = NdefRecord::createTextNdefRecord("Author : ldw123", "en",NdefRecord::UTF8);
-        rcd[2] = NdefRecord::createTextNdefRecord("Version : 0.1", "en",NdefRecord::UTF8);
-        rcd[3] = NdefRecord::createTextNdefRecord("Date : 2014.1.17", "en",NdefRecord::UTF8);
-     //   rcd[4] = NdefRecord::createEmptyRecord();
-	NdefMessage msg(rcd, 4);
-	defaultImpl = new DefaultDepAppImpl(msg);
-	LOGD("IsoDep Default App Initiated");
 	if (IS_ERROR(ulhw->setParameter(1 << 2 | 1 << 5))) {
 		LOGE("Fail to config Pn532 as PICC Target");
 		return;
 	}
+#if DBG
 	LOGD("Set Param Complete");
+#endif
 	if (IS_ERROR(ulhw->SAMConfiguration(0x01, 0xF, true))) {
 		LOGE("PN532 fails to enter to normal state");
 	}
+#if DBG
 	LOGD("Set SAM Configure");
+#endif
 }
 
 IsoDepTag::~IsoDepTag() {
 	delete defaultImpl;
 	ulhw = NULL;
-	if (ovrImpl != NULL) {
-		delete ovrImpl;
-	}
-	if(rcd != NULL){
-		delete[] rcd;
-	}
+	delete ovrImpl;
+	delete[] rcd;
 }
 
 bool IsoDepTag::sendAckApdu() {
