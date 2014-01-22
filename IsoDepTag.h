@@ -29,6 +29,11 @@ namespace NFC {
 #define APDU_CMD_SELECT_FILE (uint8_t) 0xA4
 #define APDU_CMD_VERIFY (uint8_t) 0x20
 
+#define MODE_READ_PUBLIC 0xF000
+#define MODE_READ_PRIVATE 0x0F00
+#define MODE_WRITE_PUBLIC 0x00F0
+#define MODE_WRITE_PRIVATE 0x000F
+
 class IsoApdu {
 public:
 	class IsoApduListener {
@@ -67,20 +72,14 @@ class IsoDepApp {
 public:
 	IsoDepApp();
 	virtual ~IsoDepApp();
-
-public:
-	virtual uint8_t getMsgLen() = 0;
 	virtual void onInitiatorDetected(IsoDepTag& tag) = 0;
-	virtual bool onNdefFileSelected(uint16_t fid, IsoDepTag& tag) = 0;
 	virtual uint16_t onNdefRead(uint16_t offset, uint8_t el,
 			uint8_t* response) = 0;
 	virtual bool onNdefWrite(uint16_t offset, uint16_t len, uint8_t* data) = 0;
+	virtual uint16_t getMaxFileSize(void) = 0;
+	virtual uint16_t getAccessMode(void) = 0;
+
 };
-typedef struct _iso_event_stub {
-	void (*onInitiatorDetected)(IsoDepTag& tag);
-	bool (*onNdefFileSelected)(uint16_t fid, IsoDepTag& tag);
-	bool (*onNdefRead)(uint16_t offset, IsoDepTag& tag);
-} IsoEvStub;
 
 class IsoDepTag: public IsoApdu::IsoApduListener {
 public:
@@ -94,20 +93,20 @@ public:
 	bool startIsoDepTag();
 	void onApduReceived(const IsoApdu* apdu);
 
+
 private:
+    static uint8_t CAP_CONTAINER_FILE[];
 	class DefaultDepAppImpl: public IsoDepApp {
 	public:
 		DefaultDepAppImpl(NdefMessage& msg);
 		virtual ~DefaultDepAppImpl();
 		uint32_t setNdefMsg(NdefMessage& msg);
 		void onInitiatorDetected(IsoDepTag& tag);
-		bool onNdefFileSelected(uint16_t fid, IsoDepTag& tag);
 		uint16_t onNdefRead(uint16_t offset, uint8_t el, uint8_t* response);
-		uint8_t getMsgLen();
 		bool onNdefWrite(uint16_t offset, uint16_t len, uint8_t* data);
-		static uint8_t CAP_CONTAINER_FILE[];
+		uint16_t getMaxFileSize(void);
+		uint16_t getAccessMode(void);
 	private:
-		uint16_t fid;
 		NdefFile* nFile;
 	};
         NdefRecord** rcd;
@@ -117,10 +116,10 @@ private:
 	static uint8_t MIFARE_PARAM[6];
 	static uint8_t FELICA_PARAM[18];
 	static uint8_t NFCID[10];
-	static uint8_t CAP_CONTAINER_FILE[];
 
 	uint8_t txBuf[TX_BUFFER_SIZE];
 	uint8_t rxBuf[RX_BUFFER_SIZE];
+	uint16_t fid;
 
 	bool onFileSelected(const IsoApdu* apdu);
 	uint16_t onReadAccess(uint16_t offset, uint8_t el, uint8_t* resBuff);
@@ -132,4 +131,3 @@ private:
 
 } /* namespace NFC */
 #endif /* ISODEPTAG_H_ */
-

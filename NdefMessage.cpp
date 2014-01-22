@@ -32,7 +32,6 @@ NdefFile::NdefFile(NdefMessage& msg) {
 
 	//write Payload into file image
 	offsetCounter += msg.write(&fileimg[offsetCounter]); // fill NDEF Message into file image (byte array)
-
 	EoF = (uint8_t*) fileimg + offsetCounter; //Pointer of EoF
 	cPos = fileimg; // pointer used to access file is set to point at entry of file image
 #if DBG
@@ -120,8 +119,8 @@ NdefMessage::NdefMessage(const NdefMessage& org) {
 
 NdefMessage::~NdefMessage() {
 	if (rcds != NULL) {
-		int i = 0;
-		for(;i <size;i++){
+		int i;
+		for(i = 0;i <size;i++){
 			if(rcds[i] != NULL){
 				delete rcds[i];
 			}
@@ -132,7 +131,7 @@ NdefMessage::~NdefMessage() {
 
 uint32_t NdefMessage::write(uint8_t* out) {
 	uint8_t* bhead = out;
-	for (int i = 0; i < size; i++) {
+	for (int i = 0; i < this->size; i++) {
 		out += (*rcds[i]).writeRecord(out);
 	}
 	return (uint32_t) (out - bhead);

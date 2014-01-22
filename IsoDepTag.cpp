@@ -7,7 +7,7 @@
 
 #include "IsoDepTag.h"
 
-#define DBG 0
+#define DBG 1
 
 namespace NFC {
 
@@ -20,6 +20,9 @@ namespace NFC {
 #define LOGDN(x,r) {Serial.print(F("Debug @ IsoDepTag.cpp : "));Serial.print(F(x));Serial.println(r,HEX);}
 #define PRINT_ARRAY(l,x,s) {Serial.print("\n");Serial.print(F(l));for(int i = 0;i < s;i++){Serial.print("\t");Serial.print(x[i],HEX);}Serial.print("\n");}
 #define MAX_TRY 5
+
+#define GET_RMODE(x) (x & 0xFF00)
+#define GET_WMODE(x) (x & 0xFF)
 
 #define IS_DATAFREE_PACKET(x) (x == APDU_CMD_READ_BINARY)
 
@@ -37,17 +40,19 @@ uint8_t IsoDepTag::FELICA_PARAM[18] = { 0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6,
 uint8_t IsoDepTag::NFCID[10] = { 0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89,
 		0x00, 0x00 };
 
-uint8_t IsoDepTag::DefaultDepAppImpl::CAP_CONTAINER_FILE[] = { 0x00, 0x0F, // length of cap container file
-		0x20, // Version 2_0
-		0x00, 0x7F, // Max. R-APDU Size : 127 byte
-		0x00, 0x7F, // Max. C-APDU Size : 127 byte
-		0x04, // Start of NDEF File Control TLV T = 0x04
-		0x06, // TLV length = 0x06
-		0xE1, 0x04, // NDEF File ID
-		0x04, 0x00, // Max NDEF File size
-		0x00, // Read Access possible
-		0x00, // write aceess possible
-		};
+
+uint8_t IsoDepTag::CAP_CONTAINER_FILE[] = {
+    0x00, 0x0F, // length of cap container file
+	0x20, // Version 2_0
+	0x00, 0x7F, // Max. R-APDU Size : 127 byte
+	0x00, 0x7F, // Max. C-APDU Size : 127 byte
+	0x04, // Start of NDEF File Control TLV T = 0x04
+	0x06, // TLV length = 0x06
+	0xE1, 0x04, // NDEF File ID
+	0x04, 0x00, // Max NDEF File size
+	0x00, // Read Access possible
+	0x00, // write aceess possible
+};
 
 uint8_t IsoApdu::CMD_NDEF_APP_SELECT[7] = { 0xD2, 0x76, 0x00, 0x00, 0x85, 0x01,
 		0x01 };
@@ -80,39 +85,36 @@ IsoDepTag::IsoDepTag(NFC* hw) {
 	ulhw = hw;
 	uint8_t buf[255] = { 0, };
 	//Initialize PN532 as a target which supports Iso-Dep Tag type (NFC Tag Type-4)
-	NdefRecord* rcds[] ={
-	    NdefRecord::createTextNdefRecord("This is Tag Type 4 Driver for PN532","en",NdefRecord::UTF8),
-	    NdefRecord::createEmptyRecord()
-	};
-	NdefMessage msg(rcds, 2);
-	defaultImpl = new DefaultDepAppImpl(msg);
-
 	/**
 	 * To configure pn532 as a picc which support NFC Type Tag, PICC Emulation Mode "Must be" enabled
 	 * otherwise it'll send error code when any command which is relevant to Picc Operation is received.
 	 * @param : Auto ATR_RES | ISO_14443-4 Picc Emulation
 	 *
 	 */
+    NdefRecord* rcds[] = {NdefRecord::createTextNdefRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createEmptyRecord()};
+    NdefMessage msg(rcds, 2);
+	defaultImpl = new DefaultDepAppImpl(msg);
+
 	if (IS_ERROR(ulhw->setParameter(1 << 2 | 1 << 5))) {
 		LOGE("Fail to config Pn532 as PICC Target");
 		return;
 	}
-#if DBG
 	LOGD("Set Param Complete");
-#endif
 	if (IS_ERROR(ulhw->SAMConfiguration(0x01, 0xF, true))) {
 		LOGE("PN532 fails to enter to normal state");
 	}
-#if DBG
 	LOGD("Set SAM Configure");
-#endif
 }
 
 IsoDepTag::~IsoDepTag() {
 	delete defaultImpl;
 	ulhw = NULL;
-	delete ovrImpl;
-	delete[] rcd;
+	if (ovrImpl != NULL) {
+		delete ovrImpl;
+	}
+	if(rcd != NULL){
+		delete[] rcd;
+	}
 }
 
 bool IsoDepTag::sendAckApdu() {
@@ -193,33 +195,47 @@ bool IsoDepTag::onFileSelected(const IsoApdu* apdu) {
 		return true;
 	}
 	if (apdu->getApduDataSize() == 2) {
-		uint8_t* fid = apdu->getApduData();
-		if (ovrImpl != NULL) {
-			return ovrImpl->onNdefFileSelected(fid[0] << 8 | fid[1], *this);
-		} else {
-			return defaultImpl->onNdefFileSelected(fid[0] << 8 | fid[1], *this);
-		}
+            uint8_t* data = apdu->getApduData();
+            fid = data[0] << 8 | data[1];
+            LOGDN("FID : ",fid);
+            return true;
 	}
 	return false;
 }
 
 uint16_t IsoDepTag::onReadAccess(uint16_t offset, uint8_t el,
 		uint8_t* resBuff) {
-	if (ovrImpl != NULL) {
-		return NFC_SUCCESS | ovrImpl->onNdefRead(offset, el, resBuff);
-	} else {
-		return defaultImpl->onNdefRead(offset, el, resBuff);
-	}
+		    if(fid == FID_CC){
+                    memcpy(resBuff,IsoDepTag::CAP_CONTAINER_FILE,0xF - 4);
+                    uint16_t mxSize = defaultImpl != NULL? defaultImpl->getMaxFileSize() : ovrImpl->getMaxFileSize();
+                    uint16_t mode = defaultImpl != NULL? defaultImpl->getAccessMode() : ovrImpl->getAccessMode();
+                    resBuff[0xF - 4] = mxSize >> 8;
+                    resBuff[0xF - 3] = mxSize & 0xFF;
+                    resBuff[0xF - 2] = GET_RMODE(mode) == MODE_READ_PUBLIC? 0 : 1;
+                    resBuff[0xF - 1] = GET_WMODE(mode) == MODE_WRITE_PUBLIC? 0 : 1;
+#if DBG
+                    LOGDN("READ Mode : ",GET_RMODE(mode));
+                    LOGDN("READ Public : ",MODE_READ_PUBLIC);
+                    PRINT_ARRAY("CC File : ",resBuff,0xF);
+#endif
+                    return NFC_SUCCESS | 0xF;
+		    }else{
+		        if (ovrImpl != NULL) {
+                        return NFC_SUCCESS | ovrImpl->onNdefRead(offset, el, resBuff);
+                } else {
+                        return defaultImpl->onNdefRead(offset, el, resBuff);
+                }
+		    }
 }
 
 bool IsoDepTag::onWriteAccess(const IsoApdu* apdu) {
-	uint8_t* len = apdu->getApduData();
+	uint8_t* data = apdu->getApduData();
 	if (ovrImpl != NULL) {
 		return ovrImpl->onNdefWrite(apdu->p1 << 8 | apdu->p2,
-				len[0] << 8 | len[1], len + 2);
+				apdu->getApduDataSize(), data);
 	} else {
 		return defaultImpl->onNdefWrite(apdu->p1 << 8 | apdu->p2,
-				len[0] << 8 | len[1], len + 2);
+				apdu->getApduDataSize(), data);
 	}
 }
 
@@ -314,23 +330,19 @@ IsoDepTag::DefaultDepAppImpl::~DefaultDepAppImpl() {
 }
 
 uint32_t IsoDepTag::DefaultDepAppImpl::setNdefMsg(NdefMessage& msg) {
-	this->nFile->write(&msg);
-	return 0;
+	return this->nFile->write(&msg);
 }
 
 void IsoDepTag::DefaultDepAppImpl::onInitiatorDetected(IsoDepTag& tag) {
 	LOGD("Initiator Detected");
 }
 
-bool IsoDepTag::DefaultDepAppImpl::onNdefFileSelected(uint16_t fid,
-		IsoDepTag& tag) {
-	//Nothing to do
-	this->fid = fid;
-#if DBG
-	LOGDN("Selected NDEF File id : ", fid);
-#endif
-	return true;
+uint16_t IsoDepTag::DefaultDepAppImpl::getMaxFileSize(void){
+    return 0x0400;
+}
 
+uint16_t IsoDepTag::DefaultDepAppImpl::getAccessMode(void){
+    return MODE_READ_PUBLIC | MODE_WRITE_PUBLIC;
 }
 
 uint16_t IsoDepTag::DefaultDepAppImpl::onNdefRead(uint16_t offset, uint8_t el,
@@ -338,18 +350,12 @@ uint16_t IsoDepTag::DefaultDepAppImpl::onNdefRead(uint16_t offset, uint8_t el,
 #if DBG
 	LOGDN("NDEF read Offset  : ", offset);
 	LOGDN("NDEF read Size    : ", el);
-	LOGDN("NDEF read File id : ", fid);
 #endif
-	if (fid == FID_CC) {
-		memcpy(outbuff, CAP_CONTAINER_FILE, el);
-		return NFC_SUCCESS | el;
+    if (nFile) {
+		nFile->seek(offset);
+		return NFC_SUCCESS | nFile->read(outbuff, el);
 	} else {
-		if (nFile) {
-			nFile->seek(offset);
-			return NFC_SUCCESS | nFile->read(outbuff, el);
-		} else {
-			return NFC_ERROR;
-		}
+		return NFC_ERROR;
 	}
 	return NFC_ERROR;
 }
@@ -359,15 +365,12 @@ bool IsoDepTag::DefaultDepAppImpl::onNdefWrite(uint16_t offset, uint16_t len,
 #if DBG
 	LOGDN("NDEF write Offset  : ",offset);
 	LOGDN("NDEF write length  : ",len);
-	LOGDN("NDEF write File id : ",fid);
 	PRINT_ARRAY("NDEF written data : ",data,len);
+	NdefRecord nRcd(data + 2);
 #endif
 	return true;
 }
 
-uint8_t IsoDepTag::DefaultDepAppImpl::getMsgLen() {
-	return nFile->getSizeInByte();
-}
 
 /* namespace NFC */
 

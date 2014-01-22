@@ -9,6 +9,12 @@
 #include "NdefRecord.h"
 #include <mem.h>
 
+#define LOGE(x) {Serial.print(F("Error @ NdefRecord.cpp : "));Serial.println(F(x));}
+#define LOGEN(x,r) {Serial.print(F("Error @ NdefRecord.cpp : "));Serial.print(F(x));Serial.println(r,HEX);}
+#define LOGD(x) {Serial.print(F("Debug @ NdefRecord.cpp : "));Serial.println(F(x));}
+#define LOGDN(x,r) {Serial.print(F("Debug @ NdefRecord.cpp : "));Serial.print(F(x));Serial.println(r,HEX);}
+#define PRINT_ARRAY(l,x,s) {Serial.print("\n");Serial.print(F(l));for(int i = 0;i < s;i++){Serial.print("\t");Serial.print(x[i],HEX);}Serial.print("\n");}
+
 namespace NFC {
 
 uint8_t NdefRecord::RTD_SMART_POSTER[] = { 'S', 'p' };
@@ -57,16 +63,18 @@ NdefRecord* NdefRecord::createEmptyRecord() {
 }
 
 NdefRecord::NdefRecord(NdefInitType* init, uint8_t flag) {
-    payload = NULL;
-    type = NULL;
-    id = NULL;
+        payload = NULL;
+        type = NULL;
+        id = NULL;
 	if (init->plen > 0) {
 		payload = new uint8_t[init->plen];
 		memcpy(payload, init->pload, init->plen);
+                delete init->pload;
 	}
 	if (init->tlen > 0) {
 		type = new uint8_t[init->tlen];
 		memcpy(type, init->type, init->tlen);
+                delete init->type;
 	}
 	if (init->plen < 0xFF) {
 		// Short Record Type
@@ -107,26 +115,83 @@ NdefRecord::NdefRecord(NdefInitType* init, uint8_t flag) {
 			dnHeader->flag |= NDEF_FLAG_MSK_IL;
 			id = new uint8_t[init->idlen];
 			memcpy(id, init->id, dnHeader->ilen);
+                        delete init->id;
 		}
 	}
 }
 
 NdefRecord::NdefRecord(uint8_t* record) {
-
+    type = NULL;
+    payload = NULL;
+    id = NULL;
+    uint16_t offset = 0;
+    if(*record & NDEF_FLAG_MSK_SR != 0){
+        rcdType = RCD_TYPE_SHORT;
+        NdefRecordShort* srcd = (NdefRecordShort*)malloc(sizeof(NdefRecordShort));
+        header = (void*) srcd;
+        srcd->flag = record[offset++];
+        srcd->tlen = record[offset++];
+        srcd->plen = record[offset++];
+        if(hasIdField()){
+                srcd->ilen = record[offset++];
+        }
+        if(srcd->tlen > 0){
+            type = (uint8_t*)malloc(sizeof(uint8_t) * srcd->tlen);
+            memcpy(type,&record[offset],srcd->tlen);
+            offset += srcd->tlen;
+        }
+        if(hasIdField() && srcd->ilen > 0){
+            id = (uint8_t*)malloc(sizeof(uint8_t) * srcd->ilen);
+            memcpy(id,&record[offset],srcd->ilen);
+            offset += srcd->ilen;
+        }
+        if(srcd->plen > 0){
+            payload = (uint8_t*)malloc(sizeof(uint8_t) * srcd->plen);
+            memcpy(payload,&record[offset],srcd->plen);
+        }
+    }else{
+        rcdType = RCD_TYPE_NORMAL;
+        NdefRecordNormal* nrcd = (NdefRecordNormal*)malloc(sizeof(NdefRecordNormal));
+        header = (void*) nrcd;
+        nrcd->flag = record[offset++];
+        nrcd->tlen = record[offset++];
+        memcpy(nrcd->plen,&record[offset],4);
+        offset += 4;
+        if(hasIdField()){
+            nrcd->ilen = record[offset++];
+        }
+        if(nrcd->tlen > 0){
+            type = (uint8_t*)malloc(sizeof(uint8_t) * nrcd->tlen);
+            memcpy(type,&record[offset],nrcd->tlen);
+            offset += nrcd->tlen;
+        }
+        if(hasIdField() && nrcd->ilen > 0){
+            id = (uint8_t*)malloc(sizeof(uint8_t) * nrcd->ilen);
+            memcpy(id,&record[offset],nrcd->ilen);
+            offset += nrcd->ilen;
+        }
+        if(nrcd->plen > 0){
+            uint32_t psize = nrcd->plen[0] << 24 | nrcd->plen[1] << 16 | nrcd->plen[2] << 8 | nrcd->plen[3];
+            payload = (uint8_t*)malloc(sizeof(uint8_t) * psize);
+            memcpy(payload,&record[offset],psize);
+        }
+    }
 }
 
 NdefRecord::~NdefRecord() {
+        LOGD("Destructor invoked");
 	if (rcdType == RCD_TYPE_SHORT) {
 		delete ((NdefRecordShort*) header);
 	} else {
 		delete ((NdefRecordNormal*) header);
 	}
-	delete[] payload;
-	delete[] id;
-	delete[] type;
+        delete[] payload;
+      	delete[] id;
+      	delete[] type;
 }
 
 uint16_t NdefRecord::writeRecord(uint8_t* buf) {
+        LOGD("Write Record");
 	uint8_t headerSize = 0;
 	uint8_t tSize = getTypeLength();
 	uint8_t iSize = getIdLength();
@@ -161,6 +226,7 @@ uint16_t NdefRecord::writeRecord(uint8_t* buf) {
 		memcpy(buf + offset, payload, pSize);
 		offset += pSize;
 	}
+        LOGDN("Write Size : ",offset);
 	return offset;
 }
 
@@ -371,4 +437,3 @@ bool NdefRecord::isBlankRecord() {
 }
 
 }
-
