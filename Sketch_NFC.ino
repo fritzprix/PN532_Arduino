@@ -9,12 +9,12 @@ NFC::IsoDepTag* tag;
 
 
 void setup(){
-  
-  Serial.begin(115200);  
+
+  Serial.begin(115200);
   Serial.println();
   Serial.println("---Start Initiate---");
   nfc_dev = new NFC::NFC(10);
-  tag = new NFC::IsoDepTag(nfc_dev);  
+  tag = new NFC::IsoDepTag(nfc_dev);
 }
 
 void loop(){

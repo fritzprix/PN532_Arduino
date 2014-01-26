@@ -7,7 +7,7 @@
 
 #include "IsoDepTag.h"
 
-#define DBG 1
+#define DBG 0
 
 namespace NFC {
 
@@ -25,22 +25,39 @@ namespace NFC {
 #define GET_WMODE(x) (x & 0xFF)
 
 #define IS_DATAFREE_PACKET(x) (x == APDU_CMD_READ_BINARY)
-
+/* 
+    MIFARE Parameter for initiating PN532 IC as PICC NFC TAG Type 4
+	
+ */
 uint8_t IsoDepTag::MIFARE_PARAM[6] = { 0x04, 0x00, // ATQA : Mifare Classic 1K => Type 4 Tag
 		0x01, 0x04, 0xF3, // NFCID1
 		0x20 //SAK : ISO/IEC 14443-4 PICC
 		};
-
+/*   
+    Felica Parameter for initiating PN532 IC as Target
+	None of values is actually used,so any change of value doesn't affect operation of Tag at all	
+ */
 uint8_t IsoDepTag::FELICA_PARAM[18] = { 0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6,
 		0xC9, 0x89, //NFCID2
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, //PAD
 		0xFF, 0xFF //POL_RES
 		};
 
+/*
+	  NFCID for initiating PN532 IC as Target
+	  It also seems not to be used in Tag Type 4 operation
+*/
 uint8_t IsoDepTag::NFCID[10] = { 0x01, 0xFE, 0x0F, 0xBB, 0xBA, 0xA6, 0xC9, 0x89,
 		0x00, 0x00 };
 
-
+/*
+      Capability Container File 
+	  -> this is requested from reader before read/write NDEF Message Content.
+	     Max. NDEF File Size, Read/Write Access Mode will be overwritten by values returned 
+		 by IsoDepApp Implementation
+	  @ref : IsoDepApp::getMaxFileSize(void) / IsoDepApp::getAccessMode(void) = 0;
+		 
+*/
 uint8_t IsoDepTag::CAP_CONTAINER_FILE[] = {
     0x00, 0x0F, // length of cap container file
 	0x20, // Version 2_0
@@ -54,11 +71,23 @@ uint8_t IsoDepTag::CAP_CONTAINER_FILE[] = {
 	0x00, // write aceess possible
 };
 
+
+
+/*   
+    NDEF Application Select Pattern which is sent by NFC Tag Reader
+    last 2 bytes are version modifier, 0x1 0x1 is indicate that current session is supporting Tag type 4 version 2.0
+*/
 uint8_t IsoApdu::CMD_NDEF_APP_SELECT[7] = { 0xD2, 0x76, 0x00, 0x00, 0x85, 0x01,
 		0x01 };
-
+/*
+	File ID for Capability Container	
+*/
 uint8_t IsoApdu::CMD_CAP_CONT_SELECT[2] = { 0xE1, 0x03 };
 
+
+/*
+    Parses raw bytes array
+*/
 void IsoApdu::parse(uint8_t* buff, uint16_t len, IsoApduListener* listener) {
 	uint8_t insType = *(uint8_t*) (buff + 3);
 	if (IS_DATAFREE_PACKET(insType)) {
@@ -76,44 +105,53 @@ void IsoApdu::parse(uint8_t* buff, uint16_t len, IsoApduListener* listener) {
 	}
 }
 
+
+/*  
+    Construct IsoDepTag 
+	@param hw : Instantiated NFC 
+*/
 IsoDepTag::IsoDepTag(NFC* hw) {
 	ovrImpl = NULL;
 	if (hw == NULL) {
-		LOGE("NFC Hw not initialized");
+		LOGE("NFC H/W not initialized");
 		return;
 	}
 	ulhw = hw;
-	uint8_t buf[255] = { 0, };
-	//Initialize PN532 as a target which supports Iso-Dep Tag type (NFC Tag Type-4)
+	 /*Generate NDEF Records for default IsoDepApp Implementation*/
+    NdefRecord* rcds[] = {NdefRecord::createTextNdefRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createEmptyRecord()};
+    NdefMessage msg(rcds, 2);
+	 /*Construct Default Implementation of IsoDepApp*/
+	defaultImpl = new DefaultDepAppImpl(msg);
+
 	/**
 	 * To configure pn532 as a picc which support NFC Type Tag, PICC Emulation Mode "Must be" enabled
 	 * otherwise it'll send error code when any command which is relevant to Picc Operation is received.
 	 * @param : Auto ATR_RES | ISO_14443-4 Picc Emulation
 	 *
 	 */
-    NdefRecord* rcds[] = {NdefRecord::createTextNdefRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createEmptyRecord()};
-    NdefMessage msg(rcds, 2);
-	defaultImpl = new DefaultDepAppImpl(msg);
-
 	if (IS_ERROR(ulhw->setParameter(1 << 2 | 1 << 5))) {
 		LOGE("Fail to config Pn532 as PICC Target");
 		return;
 	}
-	LOGD("Set Param Complete");
+#if DBG 
+        LOGD("Parameter Configured");
+#endif 
 	if (IS_ERROR(ulhw->SAMConfiguration(0x01, 0xF, true))) {
 		LOGE("PN532 fails to enter to normal state");
 	}
-	LOGD("Set SAM Configure");
+#if DBG
+        LOGD("Configuration of SAM is done");
+#endif 
 }
 
+/*
+    Destructor of IsoDepTag
+*/
 IsoDepTag::~IsoDepTag() {
 	delete defaultImpl;
 	ulhw = NULL;
 	if (ovrImpl != NULL) {
 		delete ovrImpl;
-	}
-	if(rcd != NULL){
-		delete[] rcd;
 	}
 }
 
@@ -137,7 +175,7 @@ uint8_t IsoDepTag::listenRATS() {
 bool IsoDepTag::startIsoDepTag() {
 	uint8_t rats = listenRATS();
 	if (rats == 0xFF) {
-		LOGE("RATS(Request for Answer to select) is not recevied");
+		LOGE("RATS(Request for Answer to select) is not received");
 		return false;
 	}
 	if (ovrImpl != NULL) {
@@ -158,29 +196,37 @@ void IsoDepTag::setNdefMsg(NdefMessage& msg) {
 }
 
 void IsoDepTag::onApduReceived(const IsoApdu* apdu) {
-	Serial.print("Apdu Received  :   ");
+#if DBG
+        LOGD("C-APDU Received from Reader");
+#endif
 	uint16_t readresult = 0;
 	switch (apdu->ins) {
 	case APDU_CMD_SELECT_FILE:
-		Serial.println(" File Select");
-		if (onFileSelected(apdu)) {
-			sendAckApdu();
+	    #if DBG
+		LOGD("TYPE : Select File");
+		#endif
+	    if (onFileSelected(apdu)) {
+			sendAckApduWithData(NULL, 0);
 		}
 		break;
 	case APDU_CMD_READ_BINARY:
+	    #if DBG
+		LOGD("TYPE : Read Binary");
+		#endif
 		// read Binary command
-		Serial.println(" Read Binary");
 		readresult = onReadAccess(apdu->p1 << 8 | apdu->p2, apdu->elen, txBuf);
-		Serial.print("Read Binary Result :  ");
-		Serial.println(readresult, HEX);
 		if (!IS_ERROR(readresult)) {
-			LOGE("No Read Error");
+#if DBG
+			LOGD("Binary Read request is handled successfully");
+#endif
 			sendAckApduWithData(txBuf, GET_VALUE(readresult));
 		}
 		break;
 	case APDU_CMD_UPDATE_BINARY:
 		// update Binary command
-		Serial.println(" Update Binary");
+		#if DBG
+		LOGD("TYPE :  Binary Update ");
+		#endif
 		if (onWriteAccess(apdu)) {
 			sendAckApduWithData(NULL, 0);
 		}
@@ -190,14 +236,15 @@ void IsoDepTag::onApduReceived(const IsoApdu* apdu) {
 }
 
 bool IsoDepTag::onFileSelected(const IsoApdu* apdu) {
-	LOGD("On File selected");
 	if (apdu->isNdefAppSelect()) {
 		return true;
 	}
 	if (apdu->getApduDataSize() == 2) {
             uint8_t* data = apdu->getApduData();
             fid = data[0] << 8 | data[1];
+			#if DBG
             LOGDN("FID : ",fid);
+			#endif
             return true;
 	}
 	return false;
@@ -248,11 +295,15 @@ bool IsoDepTag::sendAckApduWithData(uint8_t* data, uint16_t len) {
 	if (IS_ERROR(ulhw->tgSetData(txBuf,len + 2))) {
 		return false;
 	}
+	#if DBG
 	PRINT_ARRAY("Send R-APDU : ", txBuf, len + 2);
+	#endif
 	return true;
 }
 
 IsoApdu::IsoApdu(uint8_t* apdufrm, uint8_t flen, bool hasData) {
+        data = NULL;
+        PRINT_ARRAY("C-APDU : ",apdufrm,flen);
 	Apdu_Header* header = (Apdu_Header*) ((apdufrm));
 	cla = header->cla;
 	ins = header->ins;
@@ -275,8 +326,7 @@ IsoApdu::IsoApdu(uint8_t* apdufrm, uint8_t flen, bool hasData) {
 			} else {
 				LOGE("Frame Size is too small");
 			}
-		} else {
-			//No Data
+		} else {			
 			datlen = 0;
 			data = NULL;
 			elen = 0;
@@ -314,9 +364,11 @@ bool IsoApdu::isCCSelect() const {
 }
 
 IsoDepApp::IsoDepApp() {
+// No op.
 }
 
 IsoDepApp::~IsoDepApp() {
+// nothing to free
 }
 
 IsoDepTag::DefaultDepAppImpl::DefaultDepAppImpl(NdefMessage& msg) {
@@ -366,8 +418,15 @@ bool IsoDepTag::DefaultDepAppImpl::onNdefWrite(uint16_t offset, uint16_t len,
 	LOGDN("NDEF write Offset  : ",offset);
 	LOGDN("NDEF write length  : ",len);
 	PRINT_ARRAY("NDEF written data : ",data,len);
-	NdefRecord nRcd(data + 2);
+#endif  
+        if(len > 2){
+          NdefRecord* rxRcd = NdefRecord::parse(data + 2);
+          NdefMessage nmsg(&rxRcd,1);
+		  uint32_t wrsize =   nFile->write(&nmsg);
+#if DBG   
+          LOGDN("Written Size ",wrsize);
 #endif
+        }
 	return true;
 }
 

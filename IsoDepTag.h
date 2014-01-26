@@ -95,7 +95,6 @@ public:
 
 
 private:
-    static uint8_t CAP_CONTAINER_FILE[];
 	class DefaultDepAppImpl: public IsoDepApp {
 	public:
 		DefaultDepAppImpl(NdefMessage& msg);
@@ -109,13 +108,13 @@ private:
 	private:
 		NdefFile* nFile;
 	};
-        NdefRecord** rcd;
 	NFC* ulhw;
 	IsoDepApp* defaultImpl;
 	IsoDepApp* ovrImpl;
 	static uint8_t MIFARE_PARAM[6];
 	static uint8_t FELICA_PARAM[18];
 	static uint8_t NFCID[10];
+        static uint8_t CAP_CONTAINER_FILE[];
 
 	uint8_t txBuf[TX_BUFFER_SIZE];
 	uint8_t rxBuf[RX_BUFFER_SIZE];
@@ -131,3 +130,4 @@ private:
 
 } /* namespace NFC */
 #endif /* ISODEPTAG_H_ */
+

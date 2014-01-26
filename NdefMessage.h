@@ -74,3 +74,4 @@ private:
 
 } /* namespace NFC */
 #endif /* NDEFMESSAGE_H_ */
+

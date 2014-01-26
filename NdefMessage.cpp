@@ -7,7 +7,7 @@
 #include "NdefMessage.h"
 #include <mem.h>
 
-#define DBG 0
+#define DBG 1
 
 
 namespace NFC {
@@ -71,6 +71,9 @@ uint32_t NdefFile::write(NdefMessage* msg) {
 	delete[] fileimg; //clear fileimg
 	uint32_t offset = 0;
 	size = msg->getSizeInByte();
+#if DBG
+        LOGDN("Size of Message : ",size);
+#endif
 	fileimg = new uint8_t[size + NDEF_FILE_HEADER_SIZE];
 	cPos = fileimg;
 	fileimg[0] = UBYTE(size);
@@ -118,13 +121,9 @@ NdefMessage::NdefMessage(const NdefMessage& org) {
 }
 
 NdefMessage::~NdefMessage() {
-	if (rcds != NULL) {
-		int i;
-		for(i = 0;i <size;i++){
-			if(rcds[i] != NULL){
-				delete rcds[i];
-			}
-		}	//free allocated pointer of NDEF records in array of pointer
+	if (rcds != NULL) {		
+	    uint8_t idx = 0;
+		for(;idx < this->size;idx++){delete rcds[idx];}
 		delete[] rcds;	//free array of pointer
 	}
 }

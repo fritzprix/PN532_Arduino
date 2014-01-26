@@ -89,6 +89,7 @@ public:
 	static NdefRecord* createTextNdefRecord(const char* text,const char* locale,TextEncodeType tt);
 	static NdefRecord* createUriNdefRecord(const uint8_t uriId,const uint8_t* uristring);
 	static NdefRecord* createEmptyRecord();
+	static NdefRecord* parse(uint8_t* rawbytes);
 
 	NdefRecord& operator=(const NdefRecord& rho);
 
