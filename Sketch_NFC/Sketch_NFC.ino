@@ -21,7 +21,7 @@ void loop(){
   Serial.println(F("----------------Loop Begin-----------------"));
  if(tag->startIsoDepTag()){
    Serial.println("Valid Initiator Cmmand");
-   delay(2000);
+   delay(100);
  } else{
    delay(150);
  }
