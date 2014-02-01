@@ -16,7 +16,7 @@ namespace NFC {
 #define LOGEN(x,r) {Serial.print(F("Error @ NdefMessage : "));Serial.print(F(x));Serial.println(r,HEX);}
 #define LOGD(x) {Serial.print(F("Debug @ NdefMessage : "));Serial.println(F(x));}
 #define LOGDN(x,r) {Serial.print(F("Debug @ NdefMessage : "));Serial.print(F(x));Serial.println(r,HEX);}
-#define PRINT_ARRAY(l,x,s) {Serial.print("\n");Serial.print(F(l));for(int i = 0;i < s;i++){Serial.print("\t");Serial.print(x[i],HEX);}Serial.print("\n");}
+#define PRINT_ARRAY(l,x,s) {Serial.print("\n");Serial.print(F(l));for(int i = 0;i < s;i++){Serial.print("\t");Serial.print((char)x[i]);Serial.print(" (");Serial.print(x[i],HEX);Serial.print(")");}Serial.print("\n");}
 #define NDEF_FILE_HEADER_SIZE 2  //NLEN Filed Size : 2 bytes   *NLEN = size of NDEF Message
 #define UBYTE(x) (uint8_t)(x >> 8)
 #define LBYTE(x) (uint8_t) x

@@ -88,6 +88,7 @@ public:
 
 	static NdefRecord* createTextNdefRecord(const char* text,const char* locale,TextEncodeType tt);
 	static NdefRecord* createUriNdefRecord(const uint8_t uriId,const uint8_t* uristring);
+        static NdefRecord* createAndroidApplicationRecord(const char* fullqaulname);
 	static NdefRecord* createEmptyRecord();
 	static NdefRecord* parse(uint8_t* rawbytes);
 
@@ -103,6 +104,7 @@ private:
 	static uint8_t RTD_HANDOVER_SEL[];
 	static uint8_t RTD_HANDOVER_CARRIER[];
 	static uint8_t RTD_SIGNATURE[];
+        static char AAR_TYPE[];
 	static bool IS_BENDIAN;
 
 	bool isBlankRecord();

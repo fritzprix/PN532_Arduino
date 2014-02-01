@@ -25,6 +25,7 @@ uint8_t NdefRecord::RTD_HANDOVER_REQ[] = { 'H', 'r' };
 uint8_t NdefRecord::RTD_HANDOVER_SEL[] = { 'H', 's' };
 uint8_t NdefRecord::RTD_HANDOVER_CARRIER[] = { 'H', 'c' };
 uint8_t NdefRecord::RTD_SIGNATURE[] = { 'S', 'g' };
+char NdefRecord::AAR_TYPE[] = "android.com:pkg";
 bool NdefRecord::IS_BENDIAN = isBigEndian();
 
 NdefRecord* NdefRecord::createTextNdefRecord(const char* text,
@@ -62,6 +63,20 @@ NdefRecord* NdefRecord::createEmptyRecord() {
 	return new NdefRecord(&init);
 }
 
+
+NdefRecord* NdefRecord::createAndroidApplicationRecord(const char* apppkgname){
+        NdefInitType init;
+        init.plen = strcspn(apppkgname,"");
+        init.idlen = 0;
+        init.tlen = strcspn(AAR_TYPE,"");
+        init.pload = new uint8_t[init.plen];
+        init.type = new uint8_t[init.tlen];
+        init.id = NULL;
+        memcpy(init.pload,apppkgname,init.plen);
+        memcpy(init.type,AAR_TYPE,init.tlen);
+        init.tnf = TNF_EXTERNAL;
+        return new NdefRecord(&init);
+}
 
 NdefRecord* NdefRecord::parse(uint8_t* data){
 	uint32_t offset = 0;
