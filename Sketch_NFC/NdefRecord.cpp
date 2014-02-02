@@ -28,7 +28,7 @@ uint8_t NdefRecord::RTD_SIGNATURE[] = { 'S', 'g' };
 char NdefRecord::AAR_TYPE[] = "android.com:pkg";
 bool NdefRecord::IS_BENDIAN = isBigEndian();
 
-NdefRecord* NdefRecord::createTextNdefRecord(const char* text,
+NdefRecord* NdefRecord::createTextRecord(const char* text,
 		const char* locale,TextEncodeType tt) {
 	NdefInitType init;
 	uint16_t tMsgLen = strcspn(text, "");
@@ -46,9 +46,19 @@ NdefRecord* NdefRecord::createTextNdefRecord(const char* text,
 	return new NdefRecord(&init);
 }
 
-NdefRecord* NdefRecord::createUriNdefRecord(const uint8_t uriId,
-		const uint8_t* uristring) {
-	return NULL;
+NdefRecord* NdefRecord::createUriRecord(const uint8_t uriId,
+		const char* uristring) {
+        NdefInitType init;
+        init.plen = strcspn(uristring,"") + 1;
+        init.idlen = 0;
+        init.tlen = 1;
+        init.pload = new uint8_t[init.plen];
+        init.pload[0] = uriId;
+        memcpy(init.pload + 1,uristring,init.plen - 1);
+        init.id = NULL;
+        init.type = new uint8_t('U');
+        init.tnf = TNF_WELL_KNOWN;
+	return new NdefRecord(&init);
 }
 
 NdefRecord* NdefRecord::createEmptyRecord() {

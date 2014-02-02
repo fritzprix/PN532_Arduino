@@ -118,8 +118,8 @@ IsoDepTag::IsoDepTag(NFC* hw) {
 	}
 	ulhw = hw;
 	 /*Generate NDEF Records for default IsoDepApp Implementation*/
-    NdefRecord* rcds[] = {NdefRecord::createTextNdefRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createAndroidApplicationRecord("com.example.nfcreadwrite")};
-    NdefMessage msg(rcds, 2);
+    NdefRecord* rcds[] = {NdefRecord::createTextRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createAndroidApplicationRecord("com.example.nfcreadwrite"),NdefRecord::createUriRecord(URI_HTTP_WWW,"google.com")};
+    NdefMessage msg(rcds, 3);
 	 /*Construct Default Implementation of IsoDepApp*/
 	defaultImpl = new DefaultDepAppImpl(msg);
 
