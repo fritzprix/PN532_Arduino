@@ -118,7 +118,7 @@ IsoDepTag::IsoDepTag(NFC* hw) {
 	}
 	ulhw = hw;
 	 /*Generate NDEF Records for default IsoDepApp Implementation*/
-    NdefRecord* rcds[] = {NdefRecord::createTextRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createAndroidApplicationRecord("com.example.nfcreadwrite"),NdefRecord::createUriRecord(URI_HTTP_WWW,"google.com")};
+    NdefRecord* rcds[] = {NdefRecord::createTextRecord("Date : 2014.1.17", "en",NdefRecord::UTF8),NdefRecord::createAndroidApplicationRecord("com.example.nfc_client"),NdefRecord::createUriRecord(URI_HTTP,"com.example.nfc_client")};
     NdefMessage msg(rcds, 3);
 	 /*Construct Default Implementation of IsoDepApp*/
 	defaultImpl = new DefaultDepAppImpl(msg);
@@ -191,8 +191,8 @@ bool IsoDepTag::startIsoDepTag() {
 }
 
 void IsoDepTag::setNdefMsg(NdefMessage& msg) {
-	DefaultDepAppImpl* biapp = (DefaultDepAppImpl*) defaultImpl;
-	biapp->setNdefMsg(msg);
+	DefaultDepAppImpl* app = (DefaultDepAppImpl*) defaultImpl;
+	app->setNdefMsg(msg);
 }
 
 void IsoDepTag::onApduReceived(const IsoApdu* apdu) {
@@ -382,7 +382,7 @@ IsoDepTag::DefaultDepAppImpl::~DefaultDepAppImpl() {
 }
 
 uint32_t IsoDepTag::DefaultDepAppImpl::setNdefMsg(NdefMessage& msg) {
-	return this->nFile->write(&msg);
+	return this->nFile->write(&msg,NdefFile::UPDATE);
 }
 
 void IsoDepTag::DefaultDepAppImpl::onInitiatorDetected(IsoDepTag& tag) {
@@ -422,7 +422,7 @@ bool IsoDepTag::DefaultDepAppImpl::onNdefWrite(uint16_t offset, uint16_t len,
         if(len > 2){
           //NdefRecord* rxRcd = NdefRecord::parse(data + 2);
           //NdefMessage nmsg(&rxRcd,1);
-          uint32_t wrsize =   nFile->write(data + 2,len - 2);
+          uint32_t wrsize =   nFile->write(data + 2,len - 2,NdefFile::APPEND);
 #if DBG   
           LOGDN("Written Size ",wrsize);
 #endif

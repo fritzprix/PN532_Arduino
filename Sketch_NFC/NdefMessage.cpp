@@ -67,7 +67,7 @@ void NdefFile::seek(uint16_t offset) {
 	cPos = (uint8_t*) fileimg + offset;
 }
 
-uint32_t NdefFile::write(NdefMessage* msg) {
+uint32_t NdefFile::write(NdefMessage* msg,_w_mode mode) {
 	delete[] fileimg; //clear fileimg
 	uint32_t offset = 0;
 	size = msg->getSizeInByte();
@@ -84,7 +84,7 @@ uint32_t NdefFile::write(NdefMessage* msg) {
 	return offset;
 }
 
-uint32_t NdefFile::write(const uint8_t* ndata,const uint32_t len){
+uint32_t NdefFile::write(const uint8_t* ndata,const uint32_t len,_w_mode mode){
         delete[] fileimg;
         uint32_t offset = 0;
         this->size = len;

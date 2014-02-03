@@ -20,6 +20,9 @@ class NdefMessage;
  */
 class NdefFile{
 public:
+        enum _w_mode{
+          APPEND,UPDATE
+        };
 	NdefFile(NdefMessage& msg);
 	virtual ~NdefFile();
 
@@ -43,8 +46,8 @@ public:
 	 * @param:nmsg new NDEF Message
 	 * @return index of Written NDEF Message
 	 */
-	uint32_t write(NdefMessage* nmsg);
-        uint32_t write(const uint8_t* ndata,const uint32_t len);
+	uint32_t write(NdefMessage* nmsg,_w_mode mode);
+        uint32_t write(const uint8_t* ndata,const uint32_t len, _w_mode mode);
 	void seek(uint16_t offset);
 
 	void print();

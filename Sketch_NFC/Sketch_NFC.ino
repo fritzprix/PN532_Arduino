@@ -15,6 +15,11 @@ void setup(){
   Serial.println("---Start Initiate---");
   nfc_dev = new NFC::NFC(10);
   tag = new NFC::IsoDepTag(nfc_dev);
+  NFC::NdefRecord* rcds[] = {
+    NFC::NdefRecord::createTextRecord("Hello World","en",NFC::NdefRecord::UTF8)
+  };
+  NFC::NdefMessage message(rcds,1);
+  tag->setNdefMsg(message);
 }
 
 void loop(){

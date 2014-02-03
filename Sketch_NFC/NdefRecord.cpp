@@ -31,14 +31,17 @@ bool NdefRecord::IS_BENDIAN = isBigEndian();
 NdefRecord* NdefRecord::createTextRecord(const char* text,
 		const char* locale,TextEncodeType tt) {
 	NdefInitType init;
+        init.tlen = 1;
+        init.idlen = 0;
 	uint16_t tMsgLen = strcspn(text, "");
 	uint16_t tLocLen = strcspn(locale, "");
-	init.pload = new uint8_t[tMsgLen + tLocLen + 1];
-	init.type = new uint8_t('T');
-	init.idlen = 0;
+        init.plen = tLocLen + tMsgLen + 1;
+//	init.pload = new uint8_t[tMsgLen + tLocLen + 1];
+        init.pload = (uint8_t*) malloc(init.plen);
+//	init.type = new uint8_t('T');
+        init.type = (uint8_t*) malloc(init.tlen);
+        *init.type = 'T';
 	init.id = NULL;
-	init.tlen = 1;
-	init.plen = tLocLen + tMsgLen + 1;
 	init.tnf = TNF_WELL_KNOWN;
 	init.pload[0] = tt == UTF8 ? 1 << 1:1 << 7 | 1 << 1;
 	memcpy(init.pload + 1, locale, tLocLen);
@@ -52,11 +55,14 @@ NdefRecord* NdefRecord::createUriRecord(const uint8_t uriId,
         init.plen = strcspn(uristring,"") + 1;
         init.idlen = 0;
         init.tlen = 1;
-        init.pload = new uint8_t[init.plen];
+//        init.pload = new uint8_t[init.plen];
+        init.pload = (uint8_t*) malloc(init.plen);
         init.pload[0] = uriId;
         memcpy(init.pload + 1,uristring,init.plen - 1);
         init.id = NULL;
-        init.type = new uint8_t('U');
+        init.type = (uint8_t*) malloc(init.tlen);
+        *init.type = 'U';
+   //     init.type = new uint8_t('U');
         init.tnf = TNF_WELL_KNOWN;
 	return new NdefRecord(&init);
 }
@@ -79,8 +85,10 @@ NdefRecord* NdefRecord::createAndroidApplicationRecord(const char* apppkgname){
         init.plen = strcspn(apppkgname,"");
         init.idlen = 0;
         init.tlen = strcspn(AAR_TYPE,"");
-        init.pload = new uint8_t[init.plen];
-        init.type = new uint8_t[init.tlen];
+        init.pload = (uint8_t*) malloc(init.plen);
+//        init.pload = new uint8_t[init.plen];
+//        init.type = new uint8_t[init.tlen];
+        init.type = (uint8_t*) malloc(init.tlen);
         init.id = NULL;
         memcpy(init.pload,apppkgname,init.plen);
         memcpy(init.type,AAR_TYPE,init.tlen);
@@ -121,19 +129,22 @@ NdefRecord* NdefRecord::parse(uint8_t* data){
          init.idlen = data[offset++];
 	}
 	if(init.tlen > 0){
-	     init.type = new uint8_t[init.tlen];
-		 memcpy(init.type,&data[offset],init.tlen);
-		 offset += init.tlen;
+//	     init.type = new uint8_t[init.tlen];
+             init.type = (uint8_t*) malloc(init.tlen);
+             memcpy(init.type,&data[offset],init.tlen);
+             offset += init.tlen;
 	}
 	if(hasID && (init.idlen > 0)){
-	     init.type = new uint8_t[init.idlen];
-		 memcpy(init.id,&data[offset],init.idlen);
-		 offset += init.idlen;
+//	     init.type = new uint8_t[init.idlen];
+             init.id = (uint8_t*) malloc(init.idlen);
+             memcpy(init.id,&data[offset],init.idlen);
+             offset += init.idlen;
 	}
 	if(init.plen > 0){
-	     init.pload = new uint8_t[init.plen];
-		 memcpy(init.pload,&data[offset],init.plen);
-		 offset += init.plen;
+//	     init.pload = new uint8_t[init.plen];
+             init.pload = (uint8_t*) malloc(init.plen);
+             memcpy(init.pload,&data[offset],init.plen);
+             offset += init.plen;
 	}else{
 	     // Invalid Data
 		 // or Parsing Error
@@ -148,16 +159,19 @@ NdefRecord::NdefRecord(NdefInitType* init, uint8_t flag) {
     type = NULL;
     id = NULL;
 	if (init->plen > 0) {
-		payload = new uint8_t[init->plen];
+//		payload = new uint8_t[init->plen];
+                payload = (uint8_t*) malloc(init->plen);
 		memcpy(payload, init->pload, init->plen);
 	}
 	if (init->tlen > 0) {
-		type = new uint8_t[init->tlen];
+//		type = new uint8_t[init->tlen];
+                type = (uint8_t*) malloc(init->tlen);
 		memcpy(type, init->type, init->tlen);
 	}
 	if (init->plen < 0xFF) {
 		rcdType = RCD_TYPE_SHORT;
-		header = new NdefRecordShort;
+//		header = new NdefRecordShort;
+                header = (void*) malloc(sizeof(NdefRecordShort));
 		NdefRecordShort* dsHeader = (NdefRecordShort*) header;
 		dsHeader->flag = flag | NDEF_FLAG_MSK_SR
 				| (NDEF_FLAG_MSK_TNF & init->tnf);
@@ -167,14 +181,16 @@ NdefRecord::NdefRecord(NdefInitType* init, uint8_t flag) {
 		id = NULL;
 		if (dsHeader->ilen > 0) {
 			dsHeader->flag |= NDEF_FLAG_MSK_IL;
-			id = new uint8_t[init->idlen];
+                        id = (uint8_t*) malloc(init->idlen);
+//			id = new uint8_t[init->idlen];
 			memcpy(id, init->id, dsHeader->ilen);
 		}
 
 	} else {
 		// Normal Record Type
 		rcdType = RCD_TYPE_NORMAL;
-		header = new NdefRecordNormal;
+//		header = new NdefRecordNormal;
+                header = (void*) malloc(sizeof(NdefRecordNormal));
 		NdefRecordNormal* dnHeader = (NdefRecordNormal*) header;
 		dnHeader->flag = flag | (NDEF_FLAG_MSK_TNF & init->tnf);
 		dnHeader->ilen = init->idlen;
@@ -191,13 +207,17 @@ NdefRecord::NdefRecord(NdefInitType* init, uint8_t flag) {
 		id = NULL;
 		if (dnHeader->ilen > 0) {
 			dnHeader->flag |= NDEF_FLAG_MSK_IL;
-			id = new uint8_t[init->idlen];
+                        id = (uint8_t*) malloc(init->idlen);
+//			id = new uint8_t[init->idlen];
 			memcpy(id, init->id, dnHeader->ilen);
 		}
-	}
+	}/*
         delete[] init->id;
         delete[] init->type;
-        delete[] init->pload;
+        delete[] init->pload;*/
+        free(init->id);
+        free(init->type);
+        free(init->pload);
 }
 
 NdefRecord::NdefRecord(uint8_t* record) {
@@ -216,17 +236,20 @@ NdefRecord::NdefRecord(uint8_t* record) {
                 srcd->ilen = record[offset++];                
         }
         if(srcd->tlen > 0){
-            type = new uint8_t[srcd->tlen];
+//            type = new uint8_t[srcd->tlen];
+            type = (uint8_t*) malloc(srcd->tlen);
             memcpy(type,&record[offset],srcd->tlen);           
             offset += srcd->tlen;
         }
         if(hasIdField() && srcd->ilen > 0){
-            id = new uint8_t[srcd->ilen];
+//            id = new uint8_t[srcd->ilen];
+            id = (uint8_t*) malloc(srcd->ilen);
             memcpy(id,&record[offset],srcd->ilen);
             offset += srcd->ilen;
         }
         if(srcd->plen > 0){
-            payload = new uint8_t[srcd->plen];
+//            payload = new uint8_t[srcd->plen];
+            payload = (uint8_t*) malloc(srcd->plen);
             memcpy(payload,&record[offset],srcd->plen);
         }
     }else{
@@ -242,18 +265,18 @@ NdefRecord::NdefRecord(uint8_t* record) {
             nrcd->ilen = record[offset++];
         }
         if(nrcd->tlen > 0){
-            type = (uint8_t*)malloc(sizeof(uint8_t) * nrcd->tlen);
+            type = (uint8_t*) malloc(nrcd->tlen);
             memcpy(type,&record[offset],nrcd->tlen);
             offset += nrcd->tlen;
         }
         if(hasIdField() && nrcd->ilen > 0){
-            id = (uint8_t*)malloc(sizeof(uint8_t) * nrcd->ilen);
+            id = (uint8_t*) malloc(nrcd->ilen);
             memcpy(id,&record[offset],nrcd->ilen);
             offset += nrcd->ilen;
         }
         if(nrcd->plen > 0){
             uint32_t psize = getPayloadLength();
-            payload = (uint8_t*)malloc(sizeof(uint8_t) * psize);
+            payload = (uint8_t*) malloc(psize);
             memcpy(payload,&record[offset],psize);
         }
     }
@@ -262,13 +285,13 @@ NdefRecord::NdefRecord(uint8_t* record) {
 NdefRecord::~NdefRecord() {
         LOGD("Destructor invoked");
 	if (rcdType == RCD_TYPE_SHORT) {
-		delete ((NdefRecordShort*) header);
+		free((NdefRecordShort*) header);
 	} else {
-		delete ((NdefRecordNormal*) header);
+		free((NdefRecordNormal*) header);
 	}
-        delete[] payload;
-      	delete[] id;
-      	delete[] type;
+        free(payload);
+       	free(id);
+      	free(type);
 }
 
 uint16_t NdefRecord::writeRecord(uint8_t* buf) {
@@ -447,24 +470,29 @@ NdefRecord::NdefRecord(const NdefRecord& self) {
 	rcdType = self.rcdType;
 	switch (rcdType) {
 	case RCD_TYPE_SHORT:
-		header = new NdefRecordShort;
+//		header = new NdefRecordShort;
+                header = malloc(sizeof(NdefRecordShort));
 		memcpy(header, self.header, sizeof(NdefRecordShort));
 		break;
 	case RCD_TYPE_NORMAL:
-		header = new NdefRecordNormal;
+//		header = new NdefRecordNormal;
+                header = malloc(sizeof(NdefRecordNormal));
 		memcpy(header, self.header, sizeof(NdefRecordNormal));
 		break;
 	}
 	//copy type
-	type = new uint8_t[tlen];
+//	type = new uint8_t[tlen];
+        type = (uint8_t*) malloc(tlen);
 	memcpy(type, self.type, tlen);
 	//copy id if supported
 	if (self.hasIdField() && (ilen > 0)) {
-		id = new uint8_t[ilen];
+                id = (uint8_t*) malloc(ilen);
+//		id = new uint8_t[ilen];
 		memcpy(id, self.id, ilen);
 	}
 	//copy payload
-	payload = new uint8_t[plen];
+//	payload = new uint8_t[plen];
+        payload = (uint8_t*) malloc(plen);
 	memcpy(payload, self.payload, plen);
 }
 
@@ -472,15 +500,19 @@ NdefRecord::NdefRecord(const NdefRecord& self) {
 NdefRecord& NdefRecord::operator =(const NdefRecord& rho) {
 	if (this != &rho) {
 		if (!isBlankRecord()) {
+  /*
 			delete[] payload;
 			delete[] id;
-			delete[] type;
+			delete[] type;*/
+                        free(payload);
+                        free(id);
+                        free(type);
 			switch (rcdType) {
 			case RCD_TYPE_SHORT:
-				delete (NdefRecordShort*) header;
+				free((NdefRecordShort*) header);
 				break;
 			case RCD_TYPE_NORMAL:
-				delete (NdefRecordNormal*) header;
+				free((NdefRecordNormal*) header);
 				break;
 			}
 		}
@@ -490,24 +522,29 @@ NdefRecord& NdefRecord::operator =(const NdefRecord& rho) {
 		rcdType = rho.rcdType;
 		switch (rcdType) {
 		case RCD_TYPE_SHORT:
-			header = new NdefRecordShort;
+                        header = malloc(sizeof(NdefRecordShort));
+//			header = new NdefRecordShort;
 			memcpy(header, rho.header, sizeof(NdefRecordShort));
 			break;
 		case RCD_TYPE_NORMAL:
-			header = new NdefRecordNormal;
+//			header = new NdefRecordNormal;
+                        header = malloc(sizeof(NdefRecordNormal));
 			memcpy(header, rho.header, sizeof(NdefRecordNormal));
 			break;
 		}
 
-		type = new uint8_t[tlen];
+//		type = new uint8_t[tlen];
+                type = (uint8_t*) malloc(tlen);
 		memcpy(type, rho.type, tlen);
 
 		if (rho.hasIdField() && (ilen > 0)) {
-			id = new uint8_t[ilen];
+  //			id = new uint8_t[ilen];
+                        id = (uint8_t*) malloc(ilen);
 			memcpy(id, rho.id, ilen);
 		}
 
-		payload = new uint8_t[plen];
+//		payload = new uint8_t[plen];
+                payload = (uint8_t*) malloc(plen);
 		memcpy(payload, rho.payload, plen);
 	}
 	return *this;
