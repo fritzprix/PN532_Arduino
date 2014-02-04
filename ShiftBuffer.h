@@ -23,6 +23,7 @@ public:
 
 	}
 	virtual ~ShiftBuffer() {
+                delete[] array;
 	}
 	T shift(T item) {
 		T val = array[0];

@@ -16,7 +16,7 @@ namespace NFC {
 #define LOGEN(x,r) {Serial.print(F("Error @ NdefMessage : "));Serial.print(F(x));Serial.println(r,HEX);}
 #define LOGD(x) {Serial.print(F("Debug @ NdefMessage : "));Serial.println(F(x));}
 #define LOGDN(x,r) {Serial.print(F("Debug @ NdefMessage : "));Serial.print(F(x));Serial.println(r,HEX);}
-#define PRINT_ARRAY(l,x,s) {Serial.print("\n");Serial.print(F(l));for(int i = 0;i < s;i++){Serial.print("\t");Serial.print(x[i],HEX);}Serial.print("\n");}
+#define PRINT_ARRAY(l,x,s) {Serial.print("\n");Serial.print(F(l));for(int i = 0;i < s;i++){Serial.print("\t");Serial.print((char)x[i]);Serial.print(" (");Serial.print(x[i],HEX);Serial.print(")");}Serial.print("\n");}
 #define NDEF_FILE_HEADER_SIZE 2  //NLEN Filed Size : 2 bytes   *NLEN = size of NDEF Message
 #define UBYTE(x) (uint8_t)(x >> 8)
 #define LBYTE(x) (uint8_t) x
@@ -67,7 +67,7 @@ void NdefFile::seek(uint16_t offset) {
 	cPos = (uint8_t*) fileimg + offset;
 }
 
-uint32_t NdefFile::write(NdefMessage* msg) {
+uint32_t NdefFile::write(NdefMessage* msg,_w_mode mode) {
 	delete[] fileimg; //clear fileimg
 	uint32_t offset = 0;
 	size = msg->getSizeInByte();
@@ -82,6 +82,22 @@ uint32_t NdefFile::write(NdefMessage* msg) {
 	offset += msg->write(&fileimg[offset]);
 	EoF = fileimg + offset;
 	return offset;
+}
+
+uint32_t NdefFile::write(const uint8_t* ndata,const uint32_t len,_w_mode mode){
+        delete[] fileimg;
+        uint32_t offset = 0;
+        this->size = len;
+        fileimg = new uint8_t[size + NDEF_FILE_HEADER_SIZE];
+        cPos = fileimg;
+        fileimg[0] = UBYTE(size);
+	fileimg[1] = LBYTE(size);
+        offset += 2;
+        memcpy(fileimg + 2,ndata,len);
+        offset += len;
+        EoF = fileimg + offset;
+        return offset;
+        
 }
 
 void NdefFile::print() {

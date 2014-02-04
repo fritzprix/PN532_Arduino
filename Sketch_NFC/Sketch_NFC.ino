@@ -16,9 +16,11 @@ void setup(){
   nfc_dev = new NFC::NFC(10);
   tag = new NFC::IsoDepTag(nfc_dev);
   NFC::NdefRecord* rcds[] = {
-    NFC::NdefRecord::createTextRecord("Hello World","en",NFC::NdefRecord::UTF8)
+    NFC::NdefRecord::createUriRecord(URI_HTTP,"www.example.com"),
+    NFC::NdefRecord::createTextRecord("Hello World","en",NFC::NdefRecord::UTF8),
+    NFC::NdefRecord::createAndroidApplicationRecord("com.example.nfc_client")
   };
-  NFC::NdefMessage message(rcds,1);
+  NFC::NdefMessage message(rcds,3);
   tag->setNdefMsg(message);
 }
 
